@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EVENTOS MKT | Alfredo Rocha</title>
+  <style>
+    body {
+      background: linear-gradient(to right, #e8f0ff, #dbe9ff);
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+    }
+    h2 {
+      font-weight: bold;
+      text-align: center;
+      color: #0056b3;
+    }
+    form {
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .form-control, .form-select, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .btn-primary { background-color: #007bff; color: white; }
+    .btn-warning { background-color: #ffc107; color: black; }
+    .btn-success { background-color: #28a745; color: white; }
+    .btn-danger  { background-color: #dc3545; color: white; }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .table th, .table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+    }
+    .table th {
+      background-color: #007bff;
+      color: white;
+    }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    .page-link {
+      background: #ccc;
+      margin: 0 3px;
+      border-radius: 5px;
+      padding: 5px 10px;
+    }
+    .active .page-link {
+      background: #007bff;
+      color: white;
+    }
+  </style>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>📅 EVENTOS MKT - Planeador Comercial</h2>
+    <form id="eventForm">
+      <input type="text" name="nombreEvento" placeholder="Nombre del evento" class="form-control" required />
+      <input type="date" name="fecha" class="form-control" required />
+      <input type="text" name="lugar" placeholder="Lugar del evento" class="form-control" />
+      <input type="number" name="costo" placeholder="Costo" class="form-control" />
+      <input type="text" name="meta" placeholder="Meta" class="form-control" />
+      <textarea name="observaciones" placeholder="Observaciones" class="form-control"></textarea>
+      <textarea name="tareas" placeholder="Tareas" class="form-control"></textarea>
+      <select name="clase" class="form-select">
+        <option value="">Responsable</option>
+        <option value="guardia"># Guardia</option>
+        <option value="cerrador">Cerrador</option>
+        <option value="broker">Broker</option>
+      </select>
+      <select name="tamano" class="form-select">
+        <option value="">Tamaño del evento</option>
+        <option value="chico">Chico</option>
+        <option value="mediano">Mediano</option>
+        <option value="grande">Grande</option>
+      </select>
+      <textarea name="comentarios" placeholder="Comentarios adicionales" class="form-control"></textarea>
+      <div>
+        <button type="button" id="recordatorioBtn" class="btn-warning">🔔 Recordatorio</button>
+        <button type="submit" class="btn-primary">Guardar Evento ✅</button>
+      </div>
+    </form>
+
+    <div style="margin-top: 30px;">
+      <input type="text" id="busqueda" placeholder="🔍 Buscar eventos..." class="form-control" />
+      <div style="margin-top: 10px;">
+        <button id="exportExcel" class="btn-success">📊 Exportar Excel</button>
+        <button id="exportPDF" class="btn-danger">📄 Exportar PDF</button>
+      </div>
+      <div id="tablaEventos"></div>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbye1PwqmMPi2zC9T2AYqXRuEsd0UtGAdg9mEGkhYAyxEcC8fqpOi_1JnX7zj_ViGhIU/exec";
+    const form = document.getElementById("eventForm");
+    const tablaEventos = document.getElementById("tablaEventos");
+    const recordatorioBtn = document.getElementById("recordatorioBtn");
+    const exportExcel = document.getElementById("exportExcel");
+    const exportPDF = document.getElementById("exportPDF");
+    const busqueda = document.getElementById("busqueda");
+
+    let eventosData = [];
+    let paginaActual = 1;
+    const eventosPorPagina = 5;
+
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      fetch(SCRIPT_URL, { method: "POST", body: formData })
+        .then(() => {
+          alert("✅ Evento guardado con éxito, Alfredo Rocha. ¡Vas por excelente camino! 🚀");
+          form.reset();
+          cargarEventos();
+        })
+        .catch(err => console.error("Error:", err));
+    });
+
+    recordatorioBtn.addEventListener("click", () => {
+      alert("🔔 Tarea programada, recuerda su atención. ¡Éxito en el evento!");
+    });
+
+    function cargarEventos() {
+      fetch(SCRIPT_URL)
+        .then(res => res.json())
+        .then(data => {
+          eventosData = data;
+          paginaActual = 1;
+          mostrarTabla();
+        });
+    }
+
+    function mostrarTabla() {
+      const inicio = (paginaActual - 1) * eventosPorPagina;
+      const eventos = eventosData.slice(inicio, inicio + eventosPorPagina);
+      let html = `<table class="table" id="tabla"><thead>
+        <tr><th>Nombre</th><th>Fecha</th><th>Lugar</th><th>Costo</th><th>Meta</th><th>Observaciones</th><th>Tareas</th><th>Responsable</th><th>Tamaño</th><th>Comentarios</th></tr></thead><tbody>`;
+      eventos.forEach(ev => {
+        html += `<tr><td>${ev.nombreEvento}</td><td>${ev.fecha}</td><td>${ev.lugar}</td><td>${ev.costo}</td><td>${ev.meta}</td><td>${ev.observaciones}</td><td>${ev.tareas}</td><td>${ev.clase}</td><td>${ev.tamano}</td><td>${ev.comentarios}</td></tr>`;
+      });
+      html += `</tbody></table>` + generarPaginacion();
+      tablaEventos.innerHTML = html;
+    }
+
+    function generarPaginacion() {
+      const totalPaginas = Math.ceil(eventosData.length / eventosPorPagina);
+      let html = `<div class="pagination">`;
+      for (let i = 1; i <= totalPaginas; i++) {
+        html += `<div class="page-link ${i === paginaActual ? 'active' : ''}" onclick="cambiarPagina(${i})">${i}</div>`;
+      }
+      html += `</div>`;
+      return html;
+    }
+
+    window.cambiarPagina = function(pag) {
+      paginaActual = pag;
+      mostrarTabla();
+    }
+
+    busqueda.addEventListener("input", () => {
+      const valor = busqueda.value.toLowerCase();
+      document.querySelectorAll("#tabla tbody tr").forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(valor) ? "" : "none";
+      });
+    });
+
+    exportExcel.addEventListener("click", () => {
+      let wb = XLSX.utils.table_to_book(document.getElementById("tabla"), { sheet: "Eventos" });
+      XLSX.writeFile(wb, "eventos_mkt_AlfredoRocha.xlsx");
+    });
+
+    exportPDF.addEventListener("click", () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(14);
+      doc.text("Reporte de Eventos MKT", 14, 10);
+      doc.setFontSize(10);
+      doc.text("Generado por: Alfredo Rocha", 14, 17);
+      doc.autoTable({ html: "#tabla", startY: 25 });
+      doc.save("eventos_mkt_AlfredoRocha.pdf");
+    });
+
+    cargarEventos();
+  </script>
+</body>
+</html>
